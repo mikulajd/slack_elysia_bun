@@ -1,0 +1,120 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // provider = "postgresql"
+  //V .env  DATABASE_URL="file:./dev.db" pre SQLITE
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+//Pouzivatel
+model User {
+  userId    Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  firstName String
+  lastName  String
+  password  String
+
+  email                 String         @unique
+  /**
+   * Ak by konverzacia bola pre viac ako  2 pouzivatelov riesil by
+   * som to cez nejaku M:N tabulku.
+   */
+  intiatedConversations Conversation[] @relation("initiator")
+  recievedConversations Conversation[] @relation("recipient")
+
+  refreshToken String?
+  messages     Message[] @relation("user")
+
+  reactions Reaction[] @relation("user")
+}
+
+//Konverzacie
+model Conversation {
+  conversationId Int      @id @default(autoincrement())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversationName String?
+
+  initiator   User @relation("initiator", fields: [initiatorId], references: [userId], onDelete: Cascade)
+  initiatorId Int
+
+  recipient   User @relation("recipient", fields: [recipientId], references: [userId], onDelete: Cascade)
+  recipientId Int
+
+  //spravy v konverzacii
+  messages Message[]
+
+  /**
+   * Chcel som pridat nejaky check aby recipientId!=initiatorId ale
+   * nevedel som nic najst/nasiel som len post z 2023 kde pisu ze v prisme
+   * check constrainty nie su
+   */
+}
+
+//Spravy
+model Message {
+  messageId Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  //Odosielatel
+  user   User @relation("user", fields: [userId], references: [userId])
+  userId Int
+
+  //Konverzacia do ktorej sprava patri
+  conversation   Conversation @relation(fields: [conversationId], references: [conversationId], onDelete: Cascade)
+  conversationId Int
+
+  parent   Message?  @relation("MessageToParent", fields: [parentId], references: [messageId], onDelete: SetNull)
+  parentId Int?
+  replies  Message[] @relation("MessageToParent")
+
+  messageContent String
+
+  reactions Reaction[]
+
+  //Zatial iba textove spravy
+}
+
+//Typy reakcii
+model ReactionType {
+  reactionTypeId Int      @id @default(autoincrement())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  reactions     Reaction[] @relation("reactionType")
+  reactionValue String     @unique
+}
+
+//Reakcie
+model Reaction {
+  reactionId Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  //Typ reakcie
+  reactionType   ReactionType @relation("reactionType", fields: [reactionTypeId], references: [reactionTypeId], onDelete: Cascade)
+  reactionTypeId Int
+
+  //Odosielatel
+  user   User @relation("user", fields: [userId], references: [userId], onDelete: Cascade)
+  userId Int
+
+  //Sprava na ktoru bolo reagovane
+  message   Message @relation(fields: [messageId], references: [messageId], onDelete: Cascade)
+  messageId Int
+
+  @@unique([userId, messageId], name: "oneReactionPerUser")
+}
