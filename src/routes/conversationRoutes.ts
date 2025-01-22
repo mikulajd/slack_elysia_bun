@@ -7,10 +7,7 @@ export const conversationRoutes = (app: Elysia) => app
     .use(authMiddleware)
     .group('/conversations', (app) => app
         //Zoznam vsetkych konverzacii pouzivatela
-        .get('', ({ user: { userId }, query }) => ConversationController.getUserConversations(userId, query.pageNum),
-            {
-                query: t.Object({ pageNum: t.Optional(t.Numeric({ minimum: 1 })) })
-            }
+        .get('', ({ user: { userId } }) => ConversationController.getUserConversations(userId),
         )
 
         //Vytvorenie novej konverzacie

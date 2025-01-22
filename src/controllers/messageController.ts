@@ -1,12 +1,14 @@
 import db from '../db/prismaClient';
 import { error as elysiaError } from 'elysia'
 import { handlePrismaError } from '../services/prismaErrorHandler';
+import { deleteFileIfExists, saveFileAndGetPath } from '../services/storageService';
 
 abstract class MessageController {
+    static readonly FILE_STORAGE_PATH = "storage/";
 
-    static async sendMessage(userId: number, options: { conversationId: number, parentId: number | null, messageContent: string, }) {
+    static async sendMessage(userId: number, options: { conversationId: number, parentId?: number, messageContent: string, attachment?: File }) {
         try {
-            const { conversationId, messageContent, parentId } = options;
+            const { conversationId, messageContent, parentId, attachment } = options;
             const conversation = await db.conversation.findFirst({
                 where:
                 {
@@ -21,12 +23,15 @@ abstract class MessageController {
             if (!conversation) {
                 return elysiaError(404, { message: `Conversation with id ${conversationId} not found` })
             }
+
+            const path = await saveFileAndGetPath(attachment);
             return await db.message.create({
                 data: {
                     userId: userId,
                     conversationId: conversationId,
                     messageContent: messageContent,
-                    parentId: parentId
+                    parentId: parentId,
+                    filePath: path
                 }
             })
         } catch (error) {
@@ -71,6 +76,7 @@ abstract class MessageController {
             if (message.userId != userId) {
                 return elysiaError(401, { message: 'You dont have permission to delete this message' })
             }
+            await deleteFileIfExists(message.filePath);
             return await db.message.delete({
                 where: {
                     messageId: messageId,

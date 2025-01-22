@@ -81,6 +81,7 @@ model Message {
   parentId Int?
   replies  Message[] @relation("MessageToParent")
 
+  filePath       String?
   messageContent String
 
   reactions Reaction[]
